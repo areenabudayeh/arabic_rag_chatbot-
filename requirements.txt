@@ -1,0 +1,11 @@
+qdrant-client
+sentence-transformers
+google-generativeai
+transformers
+datasets
+pandas
+gradio
+evaluate
+nltk
+tqdm
+python-dotenv
