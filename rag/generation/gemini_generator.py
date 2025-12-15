@@ -34,7 +34,7 @@ class GeminiGenerator:
                 answer = "".join(
                     [p.text for p in response.candidates[0].content.parts]
                 ).strip()
-                return truncate_answer(answer), retrieved_contexts
+                return truncate_answer(answer), top_context
 
             return "No response generated", retrieved_contexts
             

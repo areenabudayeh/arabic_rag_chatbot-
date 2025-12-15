@@ -8,7 +8,7 @@ API_BASE = f"http://{DJANGO_ALLOWED_HOSTS[0]}:8000/api"
 
 # Headers
 headers = {
-    API_KEY_HEADER: API_KEYS,   
+    API_KEY_HEADER: API_KEYS[0],   
     "Content-Type": "application/json"
 }
 
