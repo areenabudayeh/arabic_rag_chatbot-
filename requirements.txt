@@ -9,3 +9,7 @@ evaluate
 nltk
 tqdm
 python-dotenv
+Django
+djangorestframework
+django-cors-headers
+drf-yasg
