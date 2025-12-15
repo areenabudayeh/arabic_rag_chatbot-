@@ -1,17 +1,17 @@
 from tqdm import tqdm
+from sentence_transformers import util
+
 from rag.embeddings.embeddings import EmbeddingGenerator
 from rag.retrieval.retrieval import Retriever
 from config.settings_rag import rag_settings
 
 from evaluation.metrics import (
+    ndcg,
     precision_at_k,
     recall_at_k,
     f1_at_k,
     average_precision,
-    reciprocal_rank,
-    ndcg,
-    soft_recall,
-    max_sbert_similarity
+    reciprocal_rank
 )
 
 
@@ -27,9 +27,9 @@ class RetrievalEvaluator:
         soft_hits = 0
         total_sbert_sim = 0.0
 
-        precisions = []
-        recalls = []
-        f1s = []
+        retrieval_precisions = []
+        retrieval_recalls = []
+        retrieval_f1s = []
         average_precisions = []
         reciprocal_ranks = []
         ndcgs = []
@@ -44,64 +44,66 @@ class RetrievalEvaluator:
                 top_k=k
             )
 
+            if not retrieved:
+                retrieval_precisions.append(0.0)
+                retrieval_recalls.append(0.0)
+                retrieval_f1s.append(0.0)
+                average_precisions.append(0.0)
+                reciprocal_ranks.append(0.0)
+                ndcgs.append(0.0)
+                continue
+
             contexts = [r["context"] for r in retrieved]
 
-            # Embeddings
             gold_emb = self.embedder.model.encode(
                 row["context"],
                 convert_to_tensor=True
             )
-
-            ctx_embs = self.embedder.model.encode(
+            ctx_emb = self.embedder.model.encode(
                 contexts,
                 convert_to_tensor=True
             )
 
-            # Cosine similarities
-            sims = (
-                max_sbert_similarity(gold_emb, ctx_embs)
-                if len(contexts) > 0
-                else 0.0
-            )
+            sims = util.cos_sim(gold_emb, ctx_emb)[0].tolist()
+            relevance = [1 if s >= threshold else 0 for s in sims]
 
-            all_sims = (
-                self.embedder.model.similarity(
-                    gold_emb, ctx_embs
-                ).tolist()
-                if len(contexts) > 0
-                else []
-            )
+            # Soft Recall 
+            if any(relevance):
+                soft_hits += 1
 
-            relevance = [1 if s >= threshold else 0 for s in all_sims]
+            total_sbert_sim += max(sims) if sims else 0.0
 
-            # Metrics
+            # Precision / Recall / F1 
             precision = precision_at_k(relevance, k)
             recall = recall_at_k(relevance)
             f1 = f1_at_k(precision, recall)
 
-            ap = average_precision(relevance)
-            rr = reciprocal_rank(relevance)
-            ndcg_k = ndcg(relevance, k)
-            soft = soft_recall(relevance)
+            retrieval_precisions.append(precision)
+            retrieval_recalls.append(recall)
+            retrieval_f1s.append(f1)
 
-            # Accumulate
-            precisions.append(precision)
-            recalls.append(recall)
-            f1s.append(f1)
-            average_precisions.append(ap)
-            reciprocal_ranks.append(rr)
-            ndcgs.append(ndcg_k)
+            # MAP 
+            average_precisions.append(
+                average_precision(relevance)
+            )
 
-            soft_hits += soft
-            total_sbert_sim += sims
+            # MRR 
+            reciprocal_ranks.append(
+                reciprocal_rank(relevance)
+            )
+
+            # NDCG 
+            ndcgs.append(
+                ndcg(relevance, k)
+            )
 
         return {
             "num_samples": total,
             "soft_recall@k": soft_hits / total,
             "avg_sbert_similarity": total_sbert_sim / total,
-            "precision@k": sum(precisions) / total,
-            "recall@k": sum(recalls) / total,
-            "f1@k": sum(f1s) / total,
+            "precision@k": sum(retrieval_precisions) / total,
+            "recall@k": sum(retrieval_recalls) / total,
+            "f1@k": sum(retrieval_f1s) / total,
             "map": sum(average_precisions) / total,
             "mrr": sum(reciprocal_ranks) / total,
             "ndcg@k": sum(ndcgs) / total
