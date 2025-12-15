@@ -87,10 +87,8 @@ def semantic_similarity(model, preds, refs):
 def precision_at_k(relevance, k):
     return sum(relevance) / k if k > 0 else 0.0
 
-
 def recall_at_k(relevance):
     return 1.0 if any(relevance) else 0.0
-
 
 def f1_at_k(precision, recall):
     return (
@@ -98,7 +96,6 @@ def f1_at_k(precision, recall):
         if (precision + recall) > 0
         else 0.0
     )
-
 
 def average_precision(relevance):
     ap = 0.0
@@ -110,7 +107,6 @@ def average_precision(relevance):
             ap += hit_count / (i + 1)
 
     return ap / hit_count if hit_count > 0 else 0.0
-
 
 def reciprocal_rank(relevance):
     for i, rel in enumerate(relevance):
